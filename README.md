@@ -213,3 +213,109 @@ volumes:
   docker-compose up -d --build
   docker exec m5_backend php artisan key:generate
 docker exec m5_backend php artisan migrate --seed
+
+فيا باشمهندس، بعد أن جهزنا ملفات Docker، الآن ننتقل إلى رفع الموقع على سيرفر حقيقي (سواء كان VPS أو سحابة مثل AWS، DigitalOcean). سأشرح لك خطوات التشغيل النهائية.
+
+---
+
+🌐 خطوات رفع الموقع (Deployment)
+
+1. متطلبات السيرفر
+
+· سيرفر Linux (Ubuntu 22.04 مثلاً)
+· Docker و Docker Compose مثبتان.
+· Domain (اختياري، لكن يفضل لاحقاً).
+
+2. نقل الملفات إلى السيرفر
+
+```bash
+# على السيرفر، أنشئ مجلداً للمشروع
+mkdir ~/m5-market
+cd ~/m5-market
+
+# إذا كان الكود في GitHub، استنسخه
+git clone https://github.com/your-username/m5-market.git .
+
+# أو انسخ الملفات عبر SCP من جهازك
+scp -r ./m5-market root@your-server-ip:~
+```
+
+3. إعداد المتغيرات البيئية
+
+```bash
+# انسخ ملفات .env.example
+cp backend/.env.example backend/.env
+cp .env.example .env   # إذا كان هناك ملف عام
+
+# عدّل backend/.env (ضبط قاعدة البيانات)
+# استخدم قيم الحاويات:
+# DB_HOST=db
+# DB_DATABASE=m5market
+# DB_USERNAME=m5user
+# DB_PASSWORD=m5pass
+# REDIS_HOST=redis
+```
+
+4. تشغيل الحاويات
+
+```bash
+docker-compose up -d --build
+```
+
+بعد الانتهاء، تحقق من تشغيل الحاويات:
+
+```bash
+docker-compose ps
+```
+
+5. تثبيت تبعيات Laravel وإعداد قاعدة البيانات
+
+```bash
+# الدخول إلى حاوية backend
+docker exec -it m5_backend bash
+
+# داخل الحاوية:
+composer install
+php artisan key:generate
+php artisan migrate --seed
+exit
+```
+
+6. ضبط الصلاحيات (إن لزم)
+
+```bash
+docker exec m5_backend chown -R www-data:www-data storage bootstrap/cache
+docker exec m5_backend chmod -R 775 storage bootstrap/cache
+```
+
+7. اختبار الموقع
+
+· Backend API: افتح http://<server-ip>:8080 – يجب أن ترى صفحة Laravel الافتراضية.
+· Frontend Dashboard: http://<server-ip>:3000 – يجب أن تظهر واجهة React.
+
+8. ربط دومين (اختياري)
+
+إذا كان لديك دومين، يمكنك توجيهه عبر Nginx Proxy Manager أو تعديل docker-compose لإضافة domain في nginx.
+
+مثال على تعديل docker-compose.yml:
+
+```yaml
+nginx_backend:
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - ./certs:/etc/nginx/certs
+```
+
+ثم إعداد SSL باستخدام Let's Encrypt (يمكنك استخدام Certbot أو Nginx Proxy Manager).
+
+---
+
+✅ الخلاصة
+
+· المشروع جاهز للإطلاق بمجرد تنفيذ الخطوات أعلاه.
+· الخدمات: Laravel API على منفذ 8080، React Dashboard على 3000.
+· المناطق المدعومة حالياً: صفط اللبن، بولاق الدكرور (قابلة للإضافة عبر واجهة المشرف أو قاعدة البيانات).
+
+هل تريد مني توثيق خطوات إعداد SSL وربط الدومين بشكل مفصل؟
